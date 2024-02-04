@@ -1,37 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleWare');
-const Session = require('../models/session.model');
-const getImageFileType = require('../utils/getImageFileType');
-const multer = require('multer');
+const adRoutes = require('./adRoutes');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, '../../public/uploads');
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  }
-});
-
-const fileFilter = (req, file, cd) => {
-  if (file.fieldname === 'image') {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(null, false);
-    }
-  } else {
-    cb(null, true);
-  }
-};
-
-const limits = {
-  fileSize: 1024 * 1024 * 5
-}
-
-const upload = multer({storage, fileFilter, limits})
 router.post('/login', async (req, res) => {
   req.session.user = {
     id: 'user_id',
@@ -49,19 +20,7 @@ router.post('/login', async (req, res) => {
   res.send({message: 'Login successful'});
 });
 
-router.post('/createAd', authMiddleware, upload.single('image', async (req, res) => {
-  try {
-    const fileType = await getImageFileType(req.file)
-    if (fileType === 'unknown'){
-      fs.unlinkSync(req.file.path)
-      return res.status(400).send({error: 'Invalid image'})
-    }
-    res.send({message: 'Ad image'})
-  } catch (error) {
-    console.error(error)
-    res.status(500).send({error: 'Server Error'})
-  }
-}))
+router.use('/ads', adRoutes);
 
 router.delete('/logout', authMiddleware, async (req, res) => {
   if (process.env.NODE_ENV !== 'production') {
@@ -72,4 +31,16 @@ router.delete('/logout', authMiddleware, async (req, res) => {
 
   res.send({message: 'Logged out successfully'});
 });
+
+
+router.get('/user', authMiddleware, (req, res) => {
+
+  res.send({message: 'Get user info'});
+});
+
+router.post('/register', async (req, res) => {
+
+  res.send({message: 'Register new user'});
+});
+
 module.exports = router;

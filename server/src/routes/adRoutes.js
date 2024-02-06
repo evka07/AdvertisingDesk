@@ -1,76 +1,63 @@
-const express = require('express');
-const router = express.Router();
-const authMiddleware = require('../middleware/authMiddleWare');
-const getImageFileType = require('../utils/getImageFileType');
-const multer = require('multer');
-const fs = require('fs');
+const express = require('express')
+const router = express.Router()
+const Ad = require('../models/ad.model')
+const authMiddleware = require('../middleware/authMiddleWare')
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'public/uploads');
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  if (file.fieldname === 'image') {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(null, false);
-    }
-  } else {
-    cb(null, true);
-  }
-};
-
-const limits = {
-  fileSize: 1024 * 1024 * 5
-}
-
-const upload = multer({storage, fileFilter, limits})
-
-router.get('/', authMiddleware, async (req, res) => {
-  // Логика получения всех объявлений
-  res.send({message: 'Get all ads'});
-});
-
-
-router.get('/:id', authMiddleware, async (req, res) => {
-  // Логика получения конкретного объявления
-  res.send({message: 'Get ad by ID'});
-});
-
-
-router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const fileType = await getImageFileType(req.file)
-    if (fileType === 'unknown'){
-      fs.unlinkSync(req.file.path)
-      return res.status(400).send({error: 'Invalid image'})
-    }
-
-    res.send({message: 'Add new ad'});
+    const ads = await Ad.find()
+    res.json(ads)
   } catch (error) {
-    console.error(error)
-    res.status(500).send({error: 'Server Error'})
+    res.status(500).json({error: error.message})
   }
-});
+})
+
+router.get('/:id', async (req, res) => {
+  try {
+    const ad = await Ad.findById(req.params.id)
+    if (!ad){
+      return res.status(404).json({error: 'The advert isn`t found '})
+
+    }
+    res.json(ad)
+  } catch (error) {
+    res.status(500).json({error: error.message})
+  }
+})
+
+router.post('/', authMiddleware, async (req, res) => {
+  try {
+    const newAd = new Ad(req.body)
+    await newAd.save()
+    res.status(201).json({message: 'Advert is added'})
+  } catch (error) {
+    res.status(500).json({error: error.message})
+  }
+})
 
 router.delete('/:id', authMiddleware, async (req, res) => {
-
-  res.send({message: 'Delete ad'});
-});
+  try {
+    const ad = await Ad.findById(req.params.id)
+    if (!ad) {
+      return res.status(404).json({error: 'The advert doesn`t exist'})
+    }
+    await ad.remove()
+  } catch (error) {
+    res.status(500).json({error: error.message})
+  }
+})
 
 router.put('/:id', authMiddleware, async (req, res) => {
-  res.send({message: 'Edit ad'});
-});
+  try{
+    const {id} = req.params
+    const updatedAd = await Ad.findByIdAndUpdate(id, req.body, {new: true})
+    if (!updatedAd) {
+      return res.status(404).json({error: 'The advert doesn`t exist'})
+    }
+    res.json({message: 'The advert is updated', updatedAd})
+  } catch (error) {
+    res.status(500).json({error: error.message})
+  }
+})
 
-router.get('/search/:searchPhrase', authMiddleware, async (req, res) => {
-  res.send({message: 'Search ads by phrase'});
-});
-
-module.exports = router;
+module.exports = router
